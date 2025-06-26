@@ -1,0 +1,100 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local scrollingFrame = playerGui.Seed_Shop.Frame.ScrollingFrame
+local WebhookURL = "https://discord.com/api/webhooks/1387747716435673108/AOlCyUvVkx-_CueTs_1Yh1D42DD9TSedbU8pTre5fGhYH9mcJPph52tMn_vH1hJE_uki"
+
+local request = http_request or request or syn and syn.request or fluxus and fluxus.request
+
+local rarityOrder = {
+    Carrot = 1,
+    Strawberry = 2,
+    Blueberry = 3,
+    Tomato = 4,
+    Starfruit = 5,
+    -- เพิ่มผลไม้ที่ต้องการจัดอันดับตรงนี้
+}
+
+local function checkAllFruits()
+    local statusList = {}
+
+    for _, fruitFrame in pairs(scrollingFrame:GetChildren()) do
+        local name = fruitFrame.Name
+        if (fruitFrame:IsA("Frame") or fruitFrame:IsA("TextButton"))
+            and not string.match(name, "_Padding$")
+            and name ~= "ItemPadding" then
+
+            local buyFrame = fruitFrame:FindFirstChild("Frame") and fruitFrame.Frame:FindFirstChild("Sheckles_Buy")
+            local stockTextLabel = fruitFrame:FindFirstChild("Main_Frame") and fruitFrame.Main_Frame:FindFirstChild("Stock_Text")
+
+            local statusText = "Unknown"
+            if buyFrame then
+                local inStock = buyFrame:FindFirstChild("In_Stock")
+                local noStock = buyFrame:FindFirstChild("No_Stock")
+
+                if inStock and inStock.Visible == true and stockTextLabel then
+                    statusText = "**" .. (stockTextLabel.Text or "??") .. "**"
+                elseif noStock and noStock.Visible == true then
+                    statusText = "Not Sell"
+                end
+            end
+
+            if statusText ~= "Not Sell" then
+                table.insert(statusList, { item = name, status = statusText })
+            end
+        end
+    end
+
+    table.sort(statusList, function(a, b)
+        local aRarity = rarityOrder[a.item] or 0
+        local bRarity = rarityOrder[b.item] or 0
+        return aRarity < bRarity
+    end)
+
+    return statusList
+end
+
+local function sendWebhookEmbed(statusList)
+    if #statusList == 0 then
+        return
+    end
+
+    local fields = {}
+    for _, entry in ipairs(statusList) do
+        table.insert(fields, {
+            name = "🍏 " .. entry.item .. " " .. entry.status,
+            value = "‎",
+            inline = false
+        })
+    end
+
+    local payload = {
+        embeds = {{
+            title = "Grow a Garden Stock - " .. os.date("%H:%M"),
+            color = 0x00FFAA,
+            description = "**Seeds**",
+            fields = fields,
+            footer = { text = "Bot Report • " .. os.date("%Y-%m-%d %H:%M:%S") }
+        }}
+    }
+
+    if request then
+        request({
+            Url = WebhookURL,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = game:GetService("HttpService"):JSONEncode(payload),
+        })
+    end
+end
+
+local function runLoop()
+    while true do
+        local statusList = checkAllFruits()
+        sendWebhookEmbed(statusList)
+        task.wait(300)
+    end
+end
+
+coroutine.wrap(runLoop)()
