@@ -2,45 +2,52 @@ local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local scrollingFrame = playerGui.Seed_Shop.Frame.ScrollingFrame
-local WebhookURL = "https://discord.com/api/webhooks/1387747716435673108/AOlCyUvVkx-_CueTs_1Yh1D42DD9TSedbU8pTre5fGhYH9mcJPph52tMn_vH1hJE_uki"
+local seedFrame = playerGui.Seed_Shop.Frame.ScrollingFrame
+local gearFrame = playerGui.Gear_Shop.Frame.ScrollingFrame
 
+local WebhookURL = "https://discord.com/api/webhooks/1387747716435673108/AOlCyUvVkx-_CueTs_1Yh1D42DD9TSedbU8pTre5fGhYH9mcJPph52tMn_vH1hJE_uki"
 local request = http_request or request or syn and syn.request or fluxus and fluxus.request
 
 local rarityOrder = {
     Carrot = 1,
-    Strawberry = 2,
-    Blueberry = 3,
-    Tomato = 4,
+    Blueberry = 2,
+    Coconut = 3,
+    Dragonfruit = 4,
     Starfruit = 5,
-    -- เพิ่มผลไม้ที่ต้องการจัดอันดับตรงนี้
+    -- เพิ่มได้ตามต้องการ
+}
+
+local gearRarityOrder = {
+    WateringCan = 1,
+    Shovel = 2,
+    SuperHoe = 3,
+    GoldenSpade = 4,
+    -- เพิ่มชื่อ gear และลำดับความหายากได้ที่นี่
 }
 
 local function checkAllFruits()
     local statusList = {}
 
-    for _, fruitFrame in pairs(scrollingFrame:GetChildren()) do
-        local name = fruitFrame.Name
-        if (fruitFrame:IsA("Frame") or fruitFrame:IsA("TextButton"))
+    for _, fruit in pairs(seedFrame:GetChildren()) do
+        local name = fruit.Name
+        if (fruit:IsA("Frame") or fruit:IsA("TextButton"))
             and not string.match(name, "_Padding$")
             and name ~= "ItemPadding" then
 
-            local buyFrame = fruitFrame:FindFirstChild("Frame") and fruitFrame.Frame:FindFirstChild("Sheckles_Buy")
-            local stockTextLabel = fruitFrame:FindFirstChild("Main_Frame") and fruitFrame.Main_Frame:FindFirstChild("Stock_Text")
+            local buyFrame = fruit:FindFirstChild("Frame") and fruit.Frame:FindFirstChild("Sheckles_Buy")
+            local stockTextLabel = fruit:FindFirstChild("Main_Frame") and fruit.Main_Frame:FindFirstChild("Stock_Text")
 
-            local statusText = "Unknown"
+            local statusText
             if buyFrame then
                 local inStock = buyFrame:FindFirstChild("In_Stock")
                 local noStock = buyFrame:FindFirstChild("No_Stock")
 
                 if inStock and inStock.Visible == true and stockTextLabel then
                     statusText = "**" .. (stockTextLabel.Text or "??") .. "**"
-                elseif noStock and noStock.Visible == true then
-                    statusText = "Not Sell"
                 end
             end
 
-            if statusText ~= "Not Sell" then
+            if statusText then
                 table.insert(statusList, { item = name, status = statusText })
             end
         end
@@ -55,27 +62,166 @@ local function checkAllFruits()
     return statusList
 end
 
-local function sendWebhookEmbed(statusList)
-    if #statusList == 0 then
-        return
+local function checkAllGears()
+    local statusList = {}
+
+    for _, gear in pairs(gearFrame:GetChildren()) do
+        local name = gear.Name
+        if (gear:IsA("Frame") or gear:IsA("TextButton"))
+            and not string.match(name, "_Padding$")
+            and name ~= "ItemPadding" then
+
+            local buyFrame = gear:FindFirstChild("Frame") and gear.Frame:FindFirstChild("Sheckles_Buy")
+            local stockTextLabel = gear:FindFirstChild("Main_Frame") and gear.Main_Frame:FindFirstChild("Stock_Text")
+
+            local statusText
+            if buyFrame then
+                local inStock = buyFrame:FindFirstChild("In_Stock")
+                local noStock = buyFrame:FindFirstChild("No_Stock")
+
+                if inStock and inStock.Visible == true and stockTextLabel then
+                    statusText = "**" .. (stockTextLabel.Text or "??") .. "**"
+                end
+            end
+
+            if statusText then
+                table.insert(statusList, { item = name, status = statusText })
+            end
+        end
     end
 
+    table.sort(statusList, function(a, b)
+    local aRarity = gearRarityOrder[a.item] or 0
+    local bRarity = gearRarityOrder[b.item] or 0
+    return aRarity < bRarity
+end)
+
+    return statusList
+end
+
+local function sendWebhookEmbed(seeds, gears)
+    if #seeds == 0 and #gears == 0 then return end
+
     local fields = {}
-    for _, entry in ipairs(statusList) do
-        table.insert(fields, {
-            name = "🍏 " .. entry.item .. " " .. entry.status,
-            value = "‎",
-            inline = false
-        })
+
+    if #seeds > 0 then
+        table.insert(fields, { name = "__**Seeds**__", value = " ", inline = false })
+        for _, entry in ipairs(seeds) do
+            table.insert(fields, {
+                name = "🍏 " .. entry.item .. " " .. entry.status,
+                value = "",
+                inline = false
+            })
+        end
+    end
+
+    if #gears > 0 then
+        table.insert(fields, { name = "__**Gears**__", value = " ", inline = false })
+        for _, entry in ipairs(gears) do
+            table.insert(fields, {
+                name = "🔧 " .. entry.item .. " " .. entry.status,
+                value = "",
+                inline = false
+            })
+        end
     end
 
     local payload = {
         embeds = {{
             title = "Grow a Garden Stock - " .. os.date("%H:%M"),
             color = 0x00FFAA,
-            description = "**Seeds**",
+            description = "",
             fields = fields,
-            footer = { text = "Bot Report • " .. os.date("%Y-%m-%d %H:%M:%S") }
+            footer = { text = "Bot Report • " .. os.date("%Y-%m-%d %H:%M") }
+        }}
+    }
+
+    if request then
+        request({
+            Url = WebhookURL,
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = game:GetService("HttpService"):JSONEncode(payload),
+        })
+    end
+end
+
+local function runLoop()
+    while true do
+        local seeds = checkAllFruits()
+        local gears = checkAllGears()
+        sendWebhookEmbed(seeds, gears)
+        task.wait(300)
+    end
+end
+
+coroutine.wrap(runLoop)()
+
+wait(1)
+
+local HttpService = game:GetService("HttpService")
+local WebhookURL = "https://discord.com/api/webhooks/1387747716435673108/AOlCyUvVkx-_CueTs_1Yh1D42DD9TSedbU8pTre5fGhYH9mcJPph52tMn_vH1hJE_uki"
+local request = http_request or request or syn and syn.request or fluxus and fluxus.request
+
+local eggList = {
+    "Common Egg",
+    "Common Summer Egg",
+    "Rare Egg",
+    "Rare Summer Egg",
+    "Legendary Egg",
+    "Mythical Egg",
+    "Bug Egg",
+    "Paradise Egg"
+}
+
+local function checkEggs()
+    local eggStatuses = {}
+    local eggLocationFolder = workspace:FindFirstChild("NPCS") and workspace.NPCS:FindFirstChild("Pet Stand") and workspace.NPCS["Pet Stand"]:FindFirstChild("EggLocations")
+    if not eggLocationFolder then return {} end
+
+    local eggCounts = {}
+
+    for _, obj in ipairs(eggLocationFolder:GetChildren()) do
+        if table.find(eggList, obj.Name) then
+            eggCounts[obj.Name] = (eggCounts[obj.Name] or 0) + 1
+        end
+    end
+
+    for _, eggName in ipairs(eggList) do
+        local count = eggCounts[eggName]
+        if count then
+            table.insert(eggStatuses, {
+                item = eggName,
+                status = "x" .. count
+            })
+        end
+    end
+
+    return eggStatuses
+end
+
+local function sendEggsWebhook(eggs)
+    if #eggs == 0 then return end
+
+    local fields = {
+        { name = "__**Eggs**__", value = " ", inline = false }
+    }
+
+    for _, entry in ipairs(eggs) do
+        table.insert(fields, {
+            name = "🥚 " .. entry.item .. " " .. entry.status,
+            value = " ",
+            inline = false
+        })
+    end
+
+    local payload = {
+        embeds = {{
+            title = "🐣 Egg Stock - " .. os.date("%H:%M"),
+            color = 0xFFAACC,
+            description = "",
+            fields = fields,
+            footer = { text = "Pet Egg Tracker • " .. os.date("%Y-%m-%d %H:%M:%S") }
         }}
     }
 
@@ -84,17 +230,17 @@ local function sendWebhookEmbed(statusList)
             Url = WebhookURL,
             Method = "POST",
             Headers = {["Content-Type"] = "application/json"},
-            Body = game:GetService("HttpService"):JSONEncode(payload),
+            Body = HttpService:JSONEncode(payload),
         })
     end
 end
 
-local function runLoop()
+local function runEggLoop()
     while true do
-        local statusList = checkAllFruits()
-        sendWebhookEmbed(statusList)
-        task.wait(300)
+        local eggs = checkEggs()
+        sendEggsWebhook(eggs)
+        task.wait(1800)
     end
 end
 
-coroutine.wrap(runLoop)()
+coroutine.wrap(runEggLoop)()
