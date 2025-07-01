@@ -3,7 +3,7 @@ local request = http_request or request or syn and syn.request or fluxus and flu
 if not request then return warn("❌ ตัวรันของคุณไม่รองรับ http_request") end
 
 -- 🧾 กำหนด GitHub
-local github_token = "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" -- แก้เป็นของคุณ
+local github_token = "ghp_xxxxxx" -- แก้เป็นของคุณ
 local repo_owner = "Zennakub123456789"
 local repo_name = "Testcommand"
 local file_path = "Commands2.txt"
@@ -257,7 +257,7 @@ local function toBase64(data)
 end
 
 -- ⚙️ กำหนดค่า GitHub ของคุณ
-local github_token = "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"
+local github_token = "ghp_xxxxx"
 local repo_owner = "Zennakub123456789"
 local repo_name = "Testcommand"
 local file_path = "Commands.txt"
